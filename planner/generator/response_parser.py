@@ -147,7 +147,7 @@ class LLMResponseParser:
         return response.strip()
 
     @staticmethod
-    def parse_json_response(response: str) -> Dict[str, Any]:
+    def parse_json_response(response: str) -> Any:
         """解析LLM返回的JSON响应（自动清理markdown和控制字符）
 
         处理流程：
@@ -159,7 +159,8 @@ class LLMResponseParser:
             response: LLM原始响应字符串
 
         Returns:
-            解析后的字典对象
+            解析后的 JSON 对象：正常是字典；模型只给数组时是列表，
+            非 JSON 时抛出 ``LLMInvalidResponseError``
 
         Raises:
             LLMInvalidResponseError: JSON解析失败时抛出
@@ -201,17 +202,21 @@ class LLMResponseParser:
             )
 
     @staticmethod
-    def extract_schedule_items(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_schedule_items(data: Any) -> List[Dict[str, Any]]:
         """从解析后的数据中提取schedule_items字段
 
+        兼容两种形态：
+        1. ``{"schedule_items": [...]}`` —— prompt 要求的标准格式
+        2. 顶层直接是 JSON 数组 —— 模型省略外层包装时按 ``schedule_items`` 处理
+
         Args:
-            data: 解析后的JSON字典
+            data: 解析后的 JSON 对象
 
         Returns:
             schedule_items列表
 
         Raises:
-            LLMInvalidResponseError: 缺少schedule_items字段时抛出
+            LLMInvalidResponseError: 缺少schedule_items字段、顶层类型不可用时抛出
 
         Examples:
             >>> parser = LLMResponseParser()
@@ -220,16 +225,29 @@ class LLMResponseParser:
             >>> len(items)
             1
         """
-        if "schedule_items" not in data:
-            error_msg = "LLM响应缺少必需的 'schedule_items' 字段"
-            logger.error(f"{error_msg}，实际字段: {list(data.keys())}")
+        if isinstance(data, list):
+            # 模型有时省略外层包装，直接返回日程数组；语义等价，按 schedule_items 处理
+            logger.warning("LLM响应顶层是数组，已按 schedule_items 处理（共 %d 项）", len(data))
+            items = data
+        elif isinstance(data, dict):
+            if "schedule_items" not in data:
+                error_msg = "LLM响应缺少必需的 'schedule_items' 字段"
+                logger.error(f"{error_msg}，实际字段: {list(data.keys())}")
+
+                raise LLMInvalidResponseError(
+                    error_msg,
+                    response=json.dumps(data, ensure_ascii=False)[:500]
+                )
+
+            items = data["schedule_items"]
+        else:
+            error_msg = f"LLM响应顶层必须是对象或数组，实际类型: {type(data).__name__}"
+            logger.error(error_msg)
 
             raise LLMInvalidResponseError(
                 error_msg,
                 response=json.dumps(data, ensure_ascii=False)[:500]
             )
-
-        items = data["schedule_items"]
 
         # 验证是否为列表
         if not isinstance(items, list):

@@ -50,7 +50,7 @@ class PluginSectionConfig(PluginConfigBase):
         },
     )
     config_version: str = Field(
-        default="4.4.7",
+        default="4.4.8",
         description="配置文件版本号",
         json_schema_extra={
             "label": "配置版本",

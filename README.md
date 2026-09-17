@@ -20,7 +20,7 @@
 启动 MaiBot，日志里会冒出来：
 
 ```
-插件 liccsu.autonomous-planning-plugin-v4 v4.4.7 加载成功
+插件 liccsu.autonomous-planning-plugin-v4 v4.4.8 加载成功
 [v4] bot_profile 已预拉取: {'personality': '...', 'reply_style': '...', 'bot_name': '...'}
 ✅ 智能注入组件已加载 (intent=True, optimizer=True, context=3/600s)
 🧹 麦麦目标清理循环已启动
@@ -183,7 +183,7 @@ cd "F:\下载\Maibot 插件开发\MaiM-with-u\MaiBot"
 .\.venv\Scripts\python.exe plugins\liccsu_autonomous-planning-plugin-v4\tests\run_smoke.py
 ```
 
-21 项全过 ✅。
+22 项全过 ✅。
 
 ---
 
@@ -201,7 +201,7 @@ utils/                ← 时区 / 时间 / 流过滤 / LLM 日志 / 图片生�
 cache/                ← 线程安全 LRU
 database/             ← SQLite 数据访问
 core/                 ← 数据模型 / 异常 / 常量
-tests/run_smoke.py    ← 21 项端到端冒烟
+tests/run_smoke.py    ← 22 项端到端冒烟
 
 data/                 ← 运行时（goals.db / llm_logs/）
 ```

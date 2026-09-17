@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "version": "4.4.7",
+  "version": "4.4.8",
   "name": "麦麦自主规划插件 v4",
-  "description": "让麦麦具备自主规划能力，通过 LLM 智能生成符合人设的日常生活日程。本仓库是 xuqian13/autonomous_planning_plugin 的 fork，插件 ID 改为 liccsu.* 以便与上游同时安装。v4.4.7: 插件 ID 变更 + LLM 调用改传 task_name（修 MaiBot 1.2.5+ 报「未找到名为 'replyer' 的模型」），同时把 Host 下限提到 1.2.5（更早的主程序不识别 task_name，传空 model 会静默用错任务）。v4.4.6: host 兼容范围放宽到 MaiBot 1.x（原声明 1.0.0 上限导致 1.1+ 无法加载）。v4.4.5: 约定到点真发出（强指令模板）+ /plan regenerate 命令 + ScheduleGenerator 配置单一来源（修 auto_scheduler 漏带 bot_profile）。",
+  "description": "让麦麦具备自主规划能力，通过 LLM 智能生成符合人设的日常生活日程。本仓库是 xuqian13/autonomous_planning_plugin 的 fork，插件 ID 改为 liccsu.* 以便与上游同时安装。v4.4.8: 响应解析兼容模型省略外层包装、直接返回 JSON 数组（修多轮生成全失败且报 'list' object has no attribute 'keys'）。v4.4.7: 插件 ID 变更 + LLM 调用改传 task_name（修 MaiBot 1.2.5+ 报「未找到名为 'replyer' 的模型」），同时把 Host 下限提到 1.2.5（更早的主程序不识别 task_name，传空 model 会静默用错任务）。v4.4.6: host 兼容范围放宽到 MaiBot 1.x（原声明 1.0.0 上限导致 1.1+ 无法加载）。v4.4.5: 约定到点真发出（强指令模板）+ /plan regenerate 命令 + ScheduleGenerator 配置单一来源（修 auto_scheduler 漏带 bot_profile）。",
   "author": {
     "name": "Liccsu",
     "url": "https://github.com/Liccsu"

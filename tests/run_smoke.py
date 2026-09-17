@@ -13,7 +13,7 @@
 
 脚本顶部已强制 stdout/stderr 为 utf-8，不需要再设 ``PYTHONIOENCODING`` 环境变量。
 
-覆盖范围（21 项）：
+覆盖范围（22 项）：
     1.  插件包导入（验证 cache 模块未缺失）
     2.  组件注册（4 Tool + 1 Command + 1 EventHandler + 2 HookHandler + 1 API = 9-10 个）
     3.  UI Section 渲染（4 个顶层 section 全部可见、字段带 label/hint/order）
@@ -35,6 +35,7 @@
     19. _extract_last_user_text 跳过主程序元数据消息
     20. ProactiveService 主动发起 + 频率调控 + 多格式 stream 解析
     21. LLM 调用走 task_name 形参（Host 1.2.5+ 的任务 / 模型语义）
+    22. 响应解析：顶层数组 / 缺字段 / 非 JSON 都走明确错误，不再抛 AttributeError
 
 任何一项失败会抛 AssertionError + 退出码 1；全过输出 ALL SMOKE TESTS PASSED 退出码 0。
 """
@@ -139,13 +140,13 @@ def mock_plugin(**schedule_overrides):
 
 
 # ============================================================
-# 21 项测试
+# 22 项测试
 # ============================================================
 
 
 @step("01. 插件包导入（cache 模块未缺失）")
 def test_pkg_import():
-    assert plugin_mod.__version__ == "4.4.7", f"version={plugin_mod.__version__}"
+    assert plugin_mod.__version__ == "4.4.8", f"version={plugin_mod.__version__}"
     cache_mod = imp("cache.lru_cache")
     c = cache_mod.LRUCache(max_size=2)
     c["a"] = 1; c["b"] = 2; c["c"] = 3
@@ -226,7 +227,7 @@ def test_current_toml():
     assert isinstance(inst.config.schedule.inject_into_replyer, bool)
     # inject_mode 在 v4.2 起 deprecated 但保留向后兼容
     assert inst.config.inject.inject_mode in ("smart", "rule")
-    assert inst.config.plugin.config_version == "4.4.7"
+    assert inst.config.plugin.config_version == "4.4.8"
 
 
 @step("06. stream_filter 白名单匹配")
@@ -966,6 +967,51 @@ def test_llm_task_name_kwarg():
     assert_task_name(p3, "replyer")
 
 
+@step("22. 响应解析：顶层数组 / 缺字段 / 非 JSON 都走明确错误")
+def test_response_parser_shapes():
+    """LLM 响应的几种形态都要么能解析、要么抛 LLMInvalidResponseError。
+
+    背景：模型省略外层 ``{"schedule_items": [...]}`` 包装、直接返回 JSON 数组时，
+    旧实现在 ``data.keys()`` 上抛 ``AttributeError: 'list' object has no attribute 'keys'``，
+    多轮生成全部失败且看不出原因。
+    """
+    rp = imp("planner.generator.response_parser")
+    parser = rp.LLMResponseParser()
+    item = {
+        "name": "早餐", "description": "吃了面包和豆浆", "goal_type": "meal",
+        "priority": "high", "time_slot": "08:00", "duration_hours": 0.5,
+    }
+
+    # 1) prompt 要求的标准包装
+    items = parser.parse_schedule_response(json.dumps({"schedule_items": [item]}, ensure_ascii=False))
+    assert len(items) == 1 and items[0]["name"] == "早餐"
+
+    # 2) 顶层直接是数组 → 按 schedule_items 处理
+    items = parser.parse_schedule_response(json.dumps([item], ensure_ascii=False))
+    assert len(items) == 1 and items[0]["name"] == "早餐"
+
+    # 3) 字典缺 schedule_items → 明确报错
+    try:
+        parser.parse_schedule_response('{"items": []}')
+        raise AssertionError("缺 schedule_items 时应抛 LLMInvalidResponseError")
+    except rp.LLMInvalidResponseError:
+        pass
+
+    # 4) 顶层既不是对象也不是数组 → 明确报错，而不是 AttributeError
+    try:
+        parser.parse_schedule_response("123")
+        raise AssertionError("顶层是数字时应抛 LLMInvalidResponseError")
+    except rp.LLMInvalidResponseError:
+        pass
+
+    # 5) 完全不是 JSON → 明确报错
+    try:
+        parser.parse_schedule_response("今天不想返回 JSON")
+        raise AssertionError("非 JSON 时应抛 LLMInvalidResponseError")
+    except rp.LLMInvalidResponseError:
+        pass
+
+
 def main() -> int:
     print(f"\n{'=' * 60}")
     print("自主规划插件 v4 完整冒烟测试")
@@ -992,6 +1038,7 @@ def main() -> int:
     test_extract_last_user_text_skip_time_prefix()
     test_proactive_service()
     test_llm_task_name_kwarg()
+    test_response_parser_shapes()
 
     print(f"\n{'=' * 60}")
     print(f"通过: {len(_PASS)} / 失败: {len(_FAIL)}")
