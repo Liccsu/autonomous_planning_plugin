@@ -615,7 +615,7 @@ class ToolsService:
                 persona=persona,
                 today_str=today_str,
                 weekday=weekday,
-                model=cfg.llm_task_name,
+                task_name=cfg.llm_task_name,
                 temperature=cfg.role_judge_temperature,
                 max_tokens=cfg.max_tokens,
                 log_dir=log_dir,

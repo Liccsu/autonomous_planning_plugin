@@ -3,17 +3,17 @@
 运行方式（任选一种 shell，在项目根目录下）::
 
     # PowerShell（Windows 默认）
-    .\\.venv\\Scripts\\python.exe plugins\\xuqian13_autonomous-planning-plugin-v4\\tests\\run_smoke.py
+    .\\.venv\\Scripts\\python.exe plugins\\liccsu_autonomous-planning-plugin-v4\\tests\\run_smoke.py
 
     # CMD
-    .venv\\Scripts\\python.exe plugins\\xuqian13_autonomous-planning-plugin-v4\\tests\\run_smoke.py
+    .venv\\Scripts\\python.exe plugins\\liccsu_autonomous-planning-plugin-v4\\tests\\run_smoke.py
 
     # Git Bash / WSL / macOS / Linux
-    ./.venv/Scripts/python.exe plugins/xuqian13_autonomous-planning-plugin-v4/tests/run_smoke.py
+    ./.venv/Scripts/python.exe plugins/liccsu_autonomous-planning-plugin-v4/tests/run_smoke.py
 
 脚本顶部已强制 stdout/stderr 为 utf-8，不需要再设 ``PYTHONIOENCODING`` 环境变量。
 
-覆盖范围（15 项）：
+覆盖范围（21 项）：
     1.  插件包导入（验证 cache 模块未缺失）
     2.  组件注册（4 Tool + 1 Command + 1 EventHandler + 2 HookHandler + 1 API = 9-10 个）
     3.  UI Section 渲染（4 个顶层 section 全部可见、字段带 label/hint/order）
@@ -29,6 +29,12 @@
     13. replyer 注入 6 种场景（正常 / 重试 / 冷却 / 关闭 / 白名单 / 无活动）
     14. 多天日程对比（load_recent_schedule_summary 3 天回看）
     15. ScheduleAutoScheduler 构造 + start/stop（强类型 plugin.config 访问）
+    16. energy_model 时段能量基线
+    17. InjectOptimizer 主动碎碎念配额 + 间隔 + 概率
+    18. 注入文本 v4.3 增强（state_hint + 精神状态 + 语气切换）
+    19. _extract_last_user_text 跳过主程序元数据消息
+    20. ProactiveService 主动发起 + 频率调控 + 多格式 stream 解析
+    21. LLM 调用走 task_name 形参（Host 1.2.5+ 的任务 / 模型语义）
 
 任何一项失败会抛 AssertionError + 退出码 1；全过输出 ALL SMOKE TESTS PASSED 退出码 0。
 """
@@ -56,7 +62,7 @@ from unittest.mock import MagicMock
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
-PKG_NAME = "_maibot_plugin_xuqian13_autonomous_planning_plugin_v4"
+PKG_NAME = "_maibot_plugin_liccsu_autonomous_planning_plugin_v4"
 
 _PASS: list[str] = []
 _FAIL: list[tuple[str, str]] = []
@@ -133,13 +139,13 @@ def mock_plugin(**schedule_overrides):
 
 
 # ============================================================
-# 13 项测试
+# 21 项测试
 # ============================================================
 
 
 @step("01. 插件包导入（cache 模块未缺失）")
 def test_pkg_import():
-    assert plugin_mod.__version__ == "4.4.6", f"version={plugin_mod.__version__}"
+    assert plugin_mod.__version__ == "4.4.7", f"version={plugin_mod.__version__}"
     cache_mod = imp("cache.lru_cache")
     c = cache_mod.LRUCache(max_size=2)
     c["a"] = 1; c["b"] = 2; c["c"] = 3
@@ -220,7 +226,7 @@ def test_current_toml():
     assert isinstance(inst.config.schedule.inject_into_replyer, bool)
     # inject_mode 在 v4.2 起 deprecated 但保留向后兼容
     assert inst.config.inject.inject_mode in ("smart", "rule")
-    assert inst.config.plugin.config_version == "4.4.6"
+    assert inst.config.plugin.config_version == "4.4.7"
 
 
 @step("06. stream_filter 白名单匹配")
@@ -870,6 +876,96 @@ def test_proactive_service():
     asyncio.run(run())
 
 
+@step("21. LLM 调用走 task_name 形参（Host 1.2.5+ 的任务 / 模型语义）")
+def test_llm_task_name_kwarg():
+    """三处 LLM 调用点必须把任务名放在 SDK 的 ``task_name`` 形参上。
+
+    背景：MaiBot 1.2.5 起 ``model`` 表示具体模型名、``task_name`` 才是任务名。
+    若仍写 ``model=task_name``，Host 会把任务名当具体模型去 ``[[models]]`` 里查，
+    报「未找到名为 'xxx' 的模型」。这里用真实 SDK 的 ``LLMCapability`` 捕获底层
+    ``call_capability`` 报文，断言发往 Host 的任务名走 ``task_name``、``model`` 留空。
+    """
+    from maibot_sdk.capabilities.llm import LLMCapability
+
+    class _CaptureCtx:
+        """替身 ctx：记录 call_capability 的报文。"""
+
+        def __init__(self, response: str):
+            self.payloads: list[dict] = []
+            self._response = response
+
+        async def call_capability(self, capability: str, **payload):
+            self.payloads.append(payload)
+            return {"success": True, "response": self._response, "model": "test-model"}
+
+    class _FakePlugin:
+        """只带 ctx.llm（真实 SDK 能力代理）与可选 plugin.config 的外壳。"""
+
+        def __init__(self, response: str):
+            self.capture = _CaptureCtx(response)
+            self.ctx = MagicMock()
+            self.ctx.llm = LLMCapability(self.capture)
+
+    def assert_task_name(plugin, expected: str) -> None:
+        # 断言全部报文：入口将来若加了重试/降级，第一条错误报文也不能漏检
+        assert plugin.capture.payloads, "未捕获到任何 llm.generate 报文"
+        for payload in plugin.capture.payloads:
+            assert payload["task_name"] == expected, \
+                f"task_name={payload.get('task_name')!r} != {expected!r}"
+            assert payload.get("model", "") == "", \
+                f"model 必须留空（空串=按任务选模型），实际 {payload.get('model')!r}"
+
+    # 1) 角色裁判（tools_service.update_schedule_v4 路径）
+    rj = imp("planner.role_judge")
+    p1 = _FakePlugin('{"decision":"today","title":"逛公园"}')
+    asyncio.run(rj.judge_schedule_request(
+        p1,
+        description="今天下午想去逛公园",
+        current_activities=[],
+        persona="",
+        today_str="2026-09-17",
+        weekday="周四",
+        task_name="replyer",
+        log_enabled=False,
+    ))
+    assert_task_name(p1, "replyer")
+
+    # 2) 日程生成主路径
+    gm_mod = imp("planner.goal_manager")
+    gm1 = gm_mod.GoalManager(data_dir=str(Path(tempfile.mkdtemp())))
+    p2 = _FakePlugin(
+        '{"schedule_items": [{"name": "早餐", "description": "在食堂吃了面包和豆浆",'
+        ' "goal_type": "meal", "priority": "high", "time_slot": "08:00",'
+        ' "duration_hours": 0.5}]}'
+    )
+    sg_mod = imp("planner.schedule_generator")
+    sg = sg_mod.ScheduleGenerator(gm1, {"llm_task_name": "planner"}, plugin=p2)
+    asyncio.run(sg._call_llm("生成今日日程"))
+    assert_task_name(p2, "planner")
+
+    # 3) 次日策略推断
+    gm2 = gm_mod.GoalManager(data_dir=str(Path(tempfile.mkdtemp())))
+    gm_mod._goal_manager = gm2
+    now_min = datetime.now().hour * 60 + datetime.now().minute
+    gm2.create_goal(
+        name="晚餐", goal_type="meal", description="木桶饭",
+        creator_id="system", chat_id="global", priority="high",
+        parameters={"time_window": [max(0, now_min - 15), min(1440, now_min + 30)]},
+    )
+    as_mod = imp("planner.auto_scheduler")
+    p3 = _FakePlugin("明天保持规律作息，上午安排学习，下午运动，晚上早点休息。")
+    real_plugin = plugin_mod.AutonomousPlanningPluginV4()
+    real_plugin.set_plugin_config({})
+    p3.config = real_plugin.config
+    scheduler = as_mod.ScheduleAutoScheduler(p3)
+    scheduler._inferred_prompt_file = Path(tempfile.mkdtemp()) / "next_day_prompt.json"
+    scheduler._inferred_prompt_cache = {}
+    asyncio.run(scheduler._infer_next_day_prompt(
+        {"llm_task_name": "replyer", "infer_lookback_days": 3}
+    ))
+    assert_task_name(p3, "replyer")
+
+
 def main() -> int:
     print(f"\n{'=' * 60}")
     print("自主规划插件 v4 完整冒烟测试")
@@ -895,6 +991,7 @@ def main() -> int:
     test_v43_inject_enhancements()
     test_extract_last_user_text_skip_time_prefix()
     test_proactive_service()
+    test_llm_task_name_kwarg()
 
     print(f"\n{'=' * 60}")
     print(f"通过: {len(_PASS)} / 失败: {len(_FAIL)}")

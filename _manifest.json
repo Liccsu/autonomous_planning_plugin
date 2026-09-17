@@ -1,18 +1,18 @@
 {
   "manifest_version": 2,
-  "version": "4.4.6",
+  "version": "4.4.7",
   "name": "麦麦自主规划插件 v4",
-  "description": "让麦麦具备自主规划能力，通过 LLM 智能生成符合人设的日常生活日程。v4.4.6: host 兼容范围放宽到 MaiBot 1.x（原声明 1.0.0 上限导致 1.1+ 无法加载）。v4.4.5: 约定到点真发出（强指令模板）+ /plan regenerate 命令 + ScheduleGenerator 配置单一来源（修 auto_scheduler 漏带 bot_profile）。",
+  "description": "让麦麦具备自主规划能力，通过 LLM 智能生成符合人设的日常生活日程。本仓库是 xuqian13/autonomous_planning_plugin 的 fork，插件 ID 改为 liccsu.* 以便与上游同时安装。v4.4.7: 插件 ID 变更 + LLM 调用改传 task_name（修 MaiBot 1.2.5+ 报「未找到名为 'replyer' 的模型」），同时把 Host 下限提到 1.2.5（更早的主程序不识别 task_name，传空 model 会静默用错任务）。v4.4.6: host 兼容范围放宽到 MaiBot 1.x（原声明 1.0.0 上限导致 1.1+ 无法加载）。v4.4.5: 约定到点真发出（强指令模板）+ /plan regenerate 命令 + ScheduleGenerator 配置单一来源（修 auto_scheduler 漏带 bot_profile）。",
   "author": {
-    "name": "靓仔",
-    "url": "https://github.com/xuqian13"
+    "name": "Liccsu",
+    "url": "https://github.com/Liccsu"
   },
   "license": "AGPL-3.0",
   "urls": {
-    "repository": "https://github.com/xuqian13/autonomous_planning_plugin"
+    "repository": "https://github.com/Liccsu/autonomous_planning_plugin"
   },
   "host_application": {
-    "min_version": "1.0.0",
+    "min_version": "1.2.5",
     "max_version": "1.99.99"
   },
   "sdk": {
@@ -39,5 +39,5 @@
     "default_locale": "zh-CN",
     "supported_locales": ["zh-CN"]
   },
-  "id": "xuqian13.autonomous-planning-plugin-v4"
+  "id": "liccsu.autonomous-planning-plugin-v4"
 }

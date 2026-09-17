@@ -20,7 +20,7 @@
 启动 MaiBot，日志里会冒出来：
 
 ```
-插件 xuqian13.autonomous-planning-plugin-v4 v4.4.3 加载成功
+插件 liccsu.autonomous-planning-plugin-v4 v4.4.7 加载成功
 [v4] bot_profile 已预拉取: {'personality': '...', 'reply_style': '...', 'bot_name': '...'}
 ✅ 智能注入组件已加载 (intent=True, optimizer=True, context=3/600s)
 🧹 麦麦目标清理循环已启动
@@ -108,7 +108,7 @@
 
 ```python
 snapshot = await self.ctx.api.call(
-    "xuqian13.autonomous-planning-plugin-v4.get_current_activity",
+    "liccsu.autonomous-planning-plugin-v4.get_current_activity",
 )
 
 if snapshot["has_activity"]:
@@ -140,8 +140,9 @@ if snapshot["has_activity"]:
 
 ## 安装
 
-1. 把整个目录放到 `MaiBot/plugins/xuqian13_autonomous-planning-plugin-v4/`
-2. 确认主程序 `config/model_config.toml` 里 `[model_task_config.planner]` 段已配好（MaiBot 默认就带这段，无需新建），`model_list` 至少一个能用的模型：
+1. 把整个目录放到 `MaiBot/plugins/liccsu_autonomous-planning-plugin-v4/`
+2. 确认主程序是 **MaiBot 1.2.5 或更新**（插件清单里 `host_application.min_version = "1.2.5"`）。1.2.5 之前的主程序不识别插件传入的 `task_name`，日程生成会静默用错模型任务，所以那些版本会直接拒绝加载本插件。
+3. 确认主程序 `config/model_config.toml` 里 `[model_task_config.planner]` 段已配好（MaiBot 默认就带这段，无需新建），`model_list` 至少一个能用的模型：
 
    ```toml
    [model_task_config.planner]   # 规划模型配置
@@ -153,9 +154,12 @@ if snapshot["has_activity"]:
    ```
 
    想换别的任务名，把插件 `config.toml` 的 `[schedule] llm_task_name = "..."` 改成对应的任务名即可（例如 `replyer` / `utils` 等主程序已配置的任务）。
-3. 启动 MaiBot
+4. 启动 MaiBot
 
 完事。`data/goals.db` 会在第一次启动时自动建。
+
+> 本仓库是 [xuqian13/autonomous_planning_plugin](https://github.com/xuqian13/autonomous_planning_plugin) 的 fork，插件 ID 为 `liccsu.autonomous-planning-plugin-v4`，可以与上游插件同时安装（上游的 ID 是 `xuqian13.autonomous-planning-plugin-v4`）。
+> 从上游迁过来：把插件目录改成 `MaiBot/plugins/liccsu_autonomous-planning-plugin-v4/` 即可；`config.toml` 和 `data/` 都在插件目录内，跟着目录一起搬，已有的日程数据不用另做处理。
 
 ---
 
@@ -176,10 +180,10 @@ if snapshot["has_activity"]:
 
 ```powershell
 cd "F:\下载\Maibot 插件开发\MaiM-with-u\MaiBot"
-.\.venv\Scripts\python.exe plugins\xuqian13_autonomous-planning-plugin-v4\tests\run_smoke.py
+.\.venv\Scripts\python.exe plugins\liccsu_autonomous-planning-plugin-v4\tests\run_smoke.py
 ```
 
-13 项全过 ✅。
+21 项全过 ✅。
 
 ---
 
@@ -197,7 +201,7 @@ utils/                ← 时区 / 时间 / 流过滤 / LLM 日志 / 图片生�
 cache/                ← 线程安全 LRU
 database/             ← SQLite 数据访问
 core/                 ← 数据模型 / 异常 / 常量
-tests/run_smoke.py    ← 13 项端到端冒烟
+tests/run_smoke.py    ← 21 项端到端冒烟
 
 data/                 ← 运行时（goals.db / llm_logs/）
 ```
@@ -207,3 +211,5 @@ data/                 ← 运行时（goals.db / llm_logs/）
 ## License
 
 AGPL-3.0
+
+本仓库是 [xuqian13/autonomous_planning_plugin](https://github.com/xuqian13/autonomous_planning_plugin) 的 fork，原作者为「靓仔」；fork 后的改动同样按 AGPL-3.0 分发。

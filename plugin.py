@@ -532,7 +532,7 @@ class AutonomousPlanningPluginV4(MaiBotPlugin):
         其他插件调用方式::
 
             snapshot = await self.ctx.api.call(
-                "xuqian13.autonomous-planning-plugin-v4.get_current_activity",
+                "liccsu.autonomous-planning-plugin-v4.get_current_activity",
                 chat_id="global",
             )
             if snapshot["has_activity"]:

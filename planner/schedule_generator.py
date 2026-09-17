@@ -777,7 +777,7 @@ class ScheduleGenerator:
         Raises:
             LLMError: LLM 调用失败
         """
-        # 获取任务名 + 参数（v4：task_name 字符串，不再是 model_config 对象）
+        # 获取任务名 + 参数（v4.4.7：任务名走 SDK 的 task_name 形参，由主程序查 model_task_config）
         task_name, max_tokens, temperature = self.base_generator.get_model_config()
 
         # v4：必须通过插件 ctx.llm 调用，未注入 plugin 视为编程错误
@@ -786,7 +786,7 @@ class ScheduleGenerator:
 
         llm_result = await self._plugin.ctx.llm.generate(
             prompt=prompt,
-            model=task_name,
+            task_name=task_name,
             max_tokens=max_tokens,
             temperature=temperature,
         )

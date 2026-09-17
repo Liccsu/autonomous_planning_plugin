@@ -114,7 +114,7 @@ async def judge_schedule_request(
     persona: str,
     today_str: str,
     weekday: str,
-    model: str,
+    task_name: str,
     temperature: float = 0.3,
     max_tokens: int = 2000,
     log_dir: Optional[Path] = None,
@@ -129,7 +129,8 @@ async def judge_schedule_request(
         persona: 角色人设文本。
         today_str: 今日日期（``YYYY-MM-DD``）。
         weekday: 今日星期标签。
-        model: 主程序 model_config 中的任务名。
+        task_name: 主程序 ``model_config.toml`` 中的任务名，经 SDK 的
+            ``task_name`` 形参传给主程序。
         temperature: LLM 温度。
         max_tokens: LLM 最大 tokens。
         log_dir: LLM 调用归档目录；为 None 时不归档。
@@ -150,14 +151,14 @@ async def judge_schedule_request(
     try:
         result = await plugin.ctx.llm.generate(
             prompt=prompt,
-            model=model,
+            task_name=task_name,
             temperature=temperature,
             max_tokens=max_tokens,
         )
     except Exception as exc:
         logger.warning(f"角色裁判 LLM 调用失败: {exc}")
         if log_enabled and log_dir is not None:
-            log_llm_call("role_decision", prompt, "", model, False, log_dir)
+            log_llm_call("role_decision", prompt, "", task_name, False, log_dir)
         return None
 
     response_text = ""
@@ -166,7 +167,7 @@ async def judge_schedule_request(
     success = bool(result.get("success", False)) if isinstance(result, dict) else False
 
     if log_enabled and log_dir is not None:
-        log_llm_call("role_decision", prompt, response_text, model, success and bool(response_text), log_dir)
+        log_llm_call("role_decision", prompt, response_text, task_name, success and bool(response_text), log_dir)
 
     if not success or not response_text:
         return None
